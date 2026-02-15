@@ -18,10 +18,11 @@ const FINANCE_TABS = [
   { path: "/advances", label: "Авансы" },
 ] as const;
 
-const MORE_TABS = [
+type TabWithShort = { path: string; label: string; shortLabel?: string };
+const MORE_TABS: TabWithShort[] = [
   { path: "/materials", label: "Материалы", shortLabel: "Матер." },
   { path: "/invoices", label: "Счета", shortLabel: "Счета" },
-] as const;
+];
 
 const STANDALONE_TABS = [{ path: "/notes", label: "Заметки" }] as const;
 
