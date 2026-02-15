@@ -6,25 +6,23 @@ import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 
-const MAIN_TABS = [{ path: "", label: "Обзор" }] as const;
+type Tab = { path: string; label: string };
+type TabWithShort = Tab & { shortLabel?: string };
 
-const WORK_TABS = [
+const MAIN_TABS: Tab[] = [{ path: "", label: "Обзор" }];
+const WORK_TABS: Tab[] = [
   { path: "/measurement", label: "Замеры" },
   { path: "/estimate", label: "Смета" },
-] as const;
-
-const FINANCE_TABS = [
+];
+const FINANCE_TABS: Tab[] = [
   { path: "/expenses", label: "Расходы" },
   { path: "/advances", label: "Авансы" },
-] as const;
-
-type TabWithShort = { path: string; label: string; shortLabel?: string };
+];
 const MORE_TABS: TabWithShort[] = [
   { path: "/materials", label: "Материалы", shortLabel: "Матер." },
   { path: "/invoices", label: "Счета", shortLabel: "Счета" },
 ];
-
-const STANDALONE_TABS = [{ path: "/notes", label: "Заметки" }] as const;
+const STANDALONE_TABS: Tab[] = [{ path: "/notes", label: "Заметки" }];
 
 export default function ObjectLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
