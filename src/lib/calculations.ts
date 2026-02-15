@@ -100,13 +100,14 @@ export interface TilingMaterials {
 const TILE_GLUE_SQM_PER_BAG = 10;
 const GROUT_KG_PER_SQM = 1.5;
 const CROSSES_PER_SQM = 20;
+const TILE_PRIMER_SQM_PER_BUCKET = 100;
 
 export function calcTilingMaterials(wallSqM: number, floorSqM?: number): TilingMaterials {
   const total = wallSqM + (floorSqM ?? 0);
   return {
     tileGlueBags: Math.ceil(total / TILE_GLUE_SQM_PER_BAG),
     groutKg: Math.ceil(total * GROUT_KG_PER_SQM),
-    primerBuckets: Math.ceil(total / PRIMER_SQM_PER_BUCKET) || 1,
+    primerBuckets: Math.ceil(total / TILE_PRIMER_SQM_PER_BUCKET) || 1,
     crossesCount: Math.ceil(total * CROSSES_PER_SQM),
   };
 }
