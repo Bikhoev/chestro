@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useCallback, useReducer, ReactNode } from "react";
+import { createContext, useContext, useCallback, useReducer, useEffect, useRef, ReactNode } from "react";
 import { v4 as uuid } from "uuid";
 import type {
   AppState,
@@ -13,11 +13,14 @@ import type {
   Advance,
   EstimateItem,
   Invoice,
+  Floor,
 } from "./types";
+import { migrateAppState } from "./migrations";
 
 const STORAGE_KEY = "chestro_app_state";
 
 const defaultState: AppState = {
+  version: 1,
   hasSkippedAuth: false,
   userId: null,
   selectedActivity: null,
@@ -44,7 +47,7 @@ function reducer(state: AppState, action: Action): AppState {
         id: action.payload.id,
         client: action.payload.client,
         activityType: action.payload.activityType,
-        rooms: [],
+        floors: [{ id: uuid(), label: "Этаж 1", rooms: [] }],
         walls: [],
         estimate: [],
         expenses: [],
@@ -78,21 +81,25 @@ function loadState(): AppState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState;
     const parsed = JSON.parse(raw) as AppState;
-    const objects = (parsed.objects ?? []).map((o) => ({
-      ...o,
-      invoices: o.invoices ?? [],
-    }));
-    return { ...defaultState, ...parsed, objects };
+    return migrateAppState(parsed, defaultState);
   } catch {
     return defaultState;
   }
 }
 
-function saveState(state: AppState) {
+const SAVE_DEBOUNCE_MS = 400;
+
+function saveState(state: AppState): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {}
+  } catch (err) {
+    if (err instanceof DOMException && (err.name === "QuotaExceededError" || err.code === 22)) {
+      console.warn("[Chestro] localStorage full. Экспортируйте данные в Настройках.");
+    } else {
+      console.error("[Chestro] Failed to save state:", err);
+    }
+  }
 }
 
 interface StoreContextValue extends AppState {
@@ -102,8 +109,11 @@ interface StoreContextValue extends AppState {
   updateObject: (id: string, data: Partial<ObjectProject>) => void;
   deleteObject: (id: string) => void;
   getObject: (id: string) => ObjectProject | undefined;
-  setRooms: (objectId: string, rooms: Room[]) => void;
-  addRoom: (objectId: string, room: Room) => void;
+  setFloors: (objectId: string, floors: Floor[]) => void;
+  addFloor: (objectId: string, floor?: Partial<Pick<Floor, "label" | "defaultHeightM">>) => void;
+  updateFloor: (objectId: string, floorId: string, data: Partial<Floor>) => void;
+  deleteFloor: (objectId: string, floorId: string) => void;
+  addRoom: (objectId: string, floorId: string, room: Room) => void;
   updateRoom: (objectId: string, roomId: string, data: Partial<Room>) => void;
   deleteRoom: (objectId: string, roomId: string) => void;
   setExpenses: (objectId: string, expenses: Expense[]) => void;
@@ -131,6 +141,19 @@ const StoreContext = createContext<StoreContextValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, defaultState, () => loadState());
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      saveState(state);
+      saveTimeoutRef.current = undefined;
+    }, SAVE_DEBOUNCE_MS);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [state]);
 
   const skipAuth = useCallback(() => dispatch({ type: "SKIP_AUTH" }), []);
   const setActivity = useCallback((activity: ActivityType) => dispatch({ type: "SET_ACTIVITY", payload: activity }), []);
@@ -151,18 +174,58 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.objects]
   );
 
-  const setRooms = useCallback(
-    (objectId: string, rooms: Room[]) => {
+  const setFloors = useCallback(
+    (objectId: string, floors: Floor[]) => {
       const obj = state.objects.find((o) => o.id === objectId);
-      if (obj) dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, rooms } });
+      if (obj) dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
+    },
+    [state.objects]
+  );
+
+  const addFloor = useCallback(
+    (objectId: string, floor?: Partial<Pick<Floor, "label" | "defaultHeightM">>) => {
+      const obj = state.objects.find((o) => o.id === objectId);
+      if (!obj) return;
+      const floors = obj.floors ?? [];
+      const nextFloor: Floor = {
+        id: uuid(),
+        label: floor?.label ?? `Этаж ${floors.length + 1}`,
+        defaultHeightM: floor?.defaultHeightM,
+        rooms: [],
+      };
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors: [...floors, nextFloor] } });
+    },
+    [state.objects]
+  );
+
+  const updateFloor = useCallback(
+    (objectId: string, floorId: string, data: Partial<Floor>) => {
+      const obj = state.objects.find((o) => o.id === objectId);
+      if (!obj) return;
+      const floors = (obj.floors ?? []).map((f) => (f.id === floorId ? { ...f, ...data } : f));
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
+    },
+    [state.objects]
+  );
+
+  const deleteFloor = useCallback(
+    (objectId: string, floorId: string) => {
+      const obj = state.objects.find((o) => o.id === objectId);
+      if (!obj) return;
+      const floors = (obj.floors ?? []).filter((f) => f.id !== floorId);
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
     },
     [state.objects]
   );
 
   const addRoom = useCallback(
-    (objectId: string, room: Room) => {
+    (objectId: string, floorId: string, room: Room) => {
       const obj = state.objects.find((o) => o.id === objectId);
-      if (obj) dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, rooms: [...obj.rooms, room] } });
+      if (!obj) return;
+      const floors = (obj.floors ?? []).map((f) =>
+        f.id === floorId ? { ...f, rooms: [...f.rooms, room] } : f
+      );
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
     },
     [state.objects]
   );
@@ -171,8 +234,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (objectId: string, roomId: string, data: Partial<Room>) => {
       const obj = state.objects.find((o) => o.id === objectId);
       if (!obj) return;
-      const rooms = obj.rooms.map((r) => (r.id === roomId ? { ...r, ...data } : r));
-      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, rooms } });
+      const floors = (obj.floors ?? []).map((f) => ({
+        ...f,
+        rooms: f.rooms.map((r) => (r.id === roomId ? { ...r, ...data } : r)),
+      }));
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
     },
     [state.objects]
   );
@@ -181,8 +247,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (objectId: string, roomId: string) => {
       const obj = state.objects.find((o) => o.id === objectId);
       if (!obj) return;
-      const rooms = obj.rooms.filter((r) => r.id !== roomId);
-      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, rooms } });
+      const floors = (obj.floors ?? []).map((f) => ({
+        ...f,
+        rooms: f.rooms.filter((r) => r.id !== roomId),
+      }));
+      dispatch({ type: "UPDATE_OBJECT", payload: { id: objectId, floors } });
     },
     [state.objects]
   );
@@ -343,16 +412,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const replaceState = useCallback((newState: AppState) => {
-    const normalized = {
-      ...newState,
-      objects: (newState.objects ?? []).map((o) => ({ ...o, invoices: o.invoices ?? [] })),
-    };
-    dispatch({ type: "HYDRATE", payload: normalized });
+    const migrated = migrateAppState(newState, defaultState);
+    dispatch({ type: "HYDRATE", payload: migrated });
   }, []);
-
-  if (typeof window !== "undefined") {
-    saveState(state);
-  }
 
   const value: StoreContextValue = {
     ...state,
@@ -362,7 +424,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateObject,
     deleteObject,
     getObject,
-    setRooms,
+    setFloors,
+    addFloor,
+    updateFloor,
+    deleteFloor,
     addRoom,
     updateRoom,
     deleteRoom,

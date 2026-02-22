@@ -30,9 +30,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col safe-top safe-bottom bg-surface px-6 py-8">
       <header className="flex items-center gap-4">
-        <button type="button" onClick={() => router.back()} className="p-2 -ml-2 text-slate-600" aria-label="Назад">
+        <Link href="/" className="p-2 -ml-2 text-slate-600 hover:text-slate-900 rounded-lg transition" aria-label="Назад">
           ←
-        </button>
+        </Link>
         <h1 className="text-xl font-semibold text-slate-900">Вход</h1>
       </header>
       <main className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full mt-8">

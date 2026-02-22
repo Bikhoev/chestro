@@ -1,22 +1,50 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-context";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function HomePage() {
   const router = useRouter();
   const { hasSkippedAuth, selectedActivity, skipAuth } = useStore();
   const { user, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (hasSkippedAuth && selectedActivity) {
+      router.replace("/objects");
+      return;
+    }
+    if (hasSkippedAuth && !selectedActivity) {
+      router.replace("/activity");
+    }
+  }, [mounted, hasSkippedAuth, selectedActivity, router]);
+
+  if (!mounted || (hasSkippedAuth && !selectedActivity)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-surface">
+        <Skeleton className="h-12 w-48 mb-4" />
+        <Skeleton className="h-4 w-64 mb-8" />
+        <Skeleton className="h-12 w-full max-w-sm" />
+      </div>
+    );
+  }
 
   if (hasSkippedAuth && selectedActivity) {
-    router.replace("/objects");
-    return null;
-  }
-  if (hasSkippedAuth && !selectedActivity) {
-    router.replace("/activity");
-    return null;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12 bg-surface">
+        <Skeleton className="h-12 w-48 mb-4" />
+        <Skeleton className="h-4 w-64" />
+      </div>
+    );
   }
 
   return (

@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { ACTIVITIES } from "@/lib/constants";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function ActivityPage() {
   const router = useRouter();
@@ -15,13 +17,13 @@ export default function ActivityPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col safe-top safe-bottom bg-surface overflow-x-hidden max-w-[100vw]">
-      <header className="px-4 sm:px-6 py-5 border-b border-slate-100 bg-white/95 backdrop-blur">
-        <h1 className="text-xl font-semibold text-slate-900">Выберите вид работ</h1>
-        <p className="mt-1 text-slate-600 text-sm">
-          От выбора зависит логика замеров и подсчёта материалов
-        </p>
-      </header>
+    <PageShell>
+      <PageHeader
+        title="Выберите вид работ"
+        subtitle="От выбора зависит логика замеров и подсчёта материалов"
+        backHref="/"
+        backLabel="Назад"
+      />
       <main className="flex-1 px-4 sm:px-6 py-6 overflow-x-hidden">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {ACTIVITIES.map((a) => (
@@ -40,6 +42,6 @@ export default function ActivityPage() {
           ))}
         </div>
       </main>
-    </div>
+    </PageShell>
   );
 }

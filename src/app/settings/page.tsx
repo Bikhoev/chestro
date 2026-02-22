@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import type { AppState } from "@/lib/types";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { PageSkeleton } from "@/components/ui/Skeleton";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -46,6 +49,16 @@ export default function SettingsPage() {
           setImportError("Неверный формат файла: ожидается объект с полем objects");
           return;
         }
+        const objCount = (parsed.objects ?? []).length;
+        if (
+          objCount > 0 &&
+          !window.confirm(
+            `Будет заменено ${objCount} объект(ов). Текущие данные будут потеряны. Продолжить?`
+          )
+        ) {
+          e.target.value = "";
+          return;
+        }
         const normalized: AppState = {
           hasSkippedAuth: parsed.hasSkippedAuth ?? false,
           userId: parsed.userId ?? null,
@@ -63,18 +76,14 @@ export default function SettingsPage() {
     reader.readAsText(file, "UTF-8");
   };
 
-  if (!mounted) return <div className="px-6 py-6" />;
+  if (!mounted) return <PageSkeleton />;
 
   return (
-    <div className="px-6 py-6 space-y-6 max-w-md">
-      <header className="flex items-center gap-4">
-        <button type="button" onClick={() => router.back()} className="p-2 -ml-2 text-slate-600" aria-label="Назад">
-          ←
-        </button>
-        <h1 className="text-xl font-semibold text-slate-900">Настройки</h1>
-      </header>
+    <PageShell>
+      <PageHeader title="Настройки" backHref="/objects" backLabel="К объектам" />
 
-      <section className="card p-4">
+      <main className="flex-1 px-4 sm:px-6 py-6">
+        <section className="card p-4 max-w-md">
         <h2 className="font-semibold text-slate-900 mb-2">Резервная копия</h2>
         <p className="text-sm text-slate-600 mb-4">
           Экспорт сохраняет все объекты, замеры, сметы, расходы и счета в один JSON-файл. Импорт заменяет текущие данные загруженным файлом.
@@ -95,11 +104,8 @@ export default function SettingsPage() {
         </div>
         {importError && <p className="text-sm text-red-600 mt-2">{importError}</p>}
         {importSuccess && <p className="text-sm text-green-600 mt-2">Данные загружены. Переход к объектам...</p>}
-      </section>
-
-      <Link href="/objects" className="btn-ghost inline-block">
-        ← К объектам
-      </Link>
-    </div>
+        </section>
+      </main>
+    </PageShell>
   );
 }

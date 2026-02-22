@@ -69,9 +69,10 @@ export default function ObjectLayout({ children }: { children: React.ReactNode }
 
   if (mounted && !obj) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-6">
-        <p className="text-slate-600">Объект не найден</p>
-        <Link href="/objects" className="btn-primary mt-4">
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-surface">
+        <p className="text-slate-600 mb-2">Объект не найден</p>
+        <p className="text-sm text-slate-500 mb-4">Возможно, он был удалён или ссылка устарела.</p>
+        <Link href="/objects" className="btn-primary mt-2">
           К списку объектов
         </Link>
       </div>
@@ -200,7 +201,7 @@ export default function ObjectLayout({ children }: { children: React.ReactNode }
         typeof document !== "undefined" &&
         createPortal(
           <div
-            className="fixed py-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl min-w-[10rem] w-max max-w-[calc(100vw-2rem)] z-[9999]"
+            className="fixed z-[9999] py-2 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.15)] min-w-[11rem] w-max max-w-[calc(100vw-2rem)]"
             role="menu"
             style={{
               top: dropdownRect.top,
@@ -218,8 +219,8 @@ export default function ObjectLayout({ children }: { children: React.ReactNode }
                     href={href}
                     role="menuitem"
                     onClick={() => setOpenMenu(null)}
-                    className={`block w-full px-4 py-2.5 text-sm font-medium whitespace-nowrap text-left ${
-                      isActive ? "bg-chestro-50 text-chestro-800" : "text-slate-700 hover:bg-slate-50"
+                    className={`block w-full px-4 py-3 text-sm font-medium whitespace-nowrap text-left transition-colors ${
+                      isActive ? "bg-chestro-50 text-chestro-800" : "text-slate-700 hover:bg-chestro-50/80 hover:text-chestro-800"
                     }`}
                   >
                     {tab.label}

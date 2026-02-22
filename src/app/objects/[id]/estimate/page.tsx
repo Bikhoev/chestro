@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { getMeasurementSummary, formatRubles, round2 } from "@/lib/calculations";
+import { getMeasurementSummary, formatRubles, round2, getRoomsFromObject } from "@/lib/calculations";
 
 export default function EstimatePage() {
   const params = useParams();
@@ -18,7 +18,7 @@ export default function EstimatePage() {
 
   if (!obj) return null;
 
-  const summary = getMeasurementSummary(obj.rooms, obj.walls);
+  const summary = getMeasurementSummary(getRoomsFromObject(obj), obj.walls);
   const totalVolume = round2(summary.totalWallSqM + summary.slopesLinearM);
 
   const addFromMeasurements = () => {
@@ -88,7 +88,7 @@ export default function EstimatePage() {
   const handlePrint = () => window.print();
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="px-4 sm:px-6 py-6 space-y-6">
       {/* Расчёт из замеров */}
       {(summary.totalWallSqM > 0 || summary.slopesLinearM > 0) && (
         <section className="card p-4">

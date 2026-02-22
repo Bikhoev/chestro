@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { getMeasurementSummary, formatRubles, round2 } from "@/lib/calculations";
+import { getMeasurementSummary, formatRubles, round2, getRoomsFromObject } from "@/lib/calculations";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function ObjectOverviewPage() {
   const params = useParams();
@@ -19,10 +20,17 @@ export default function ObjectOverviewPage() {
   const obj = mounted ? getObject(id) : null;
 
   if (!mounted || !obj) {
-    return <div className="px-4 sm:px-6 py-6 max-w-full overflow-hidden" />;
+    return (
+      <div className="px-4 sm:px-6 py-6 space-y-4 max-w-full overflow-hidden">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
   }
 
-  const summary = getMeasurementSummary(obj.rooms, obj.walls);
+  const rooms = getRoomsFromObject(obj);
+  const summary = getMeasurementSummary(rooms, obj.walls);
   const expensesNonOverrun = obj.expenses.filter((e) => e.category !== "overrun");
   const totalExpenses = round2(
     expensesNonOverrun.reduce((s, e) => s + e.amount - (e.remainderAmount ?? 0), 0)
@@ -34,6 +42,7 @@ export default function ObjectOverviewPage() {
   );
   const totalAdvances = obj.advances.reduce((s, a) => s + a.amount, 0);
   const estimateTotal = obj.estimate.reduce((s, i) => s + i.total, 0);
+  const balance = round2(totalAdvances - totalExpenses);
 
   const saveDates = () => {
     setDates(id, dateStart || undefined, dateEnd || undefined);
@@ -42,6 +51,20 @@ export default function ObjectOverviewPage() {
 
   return (
     <div className="px-4 sm:px-6 py-6 space-y-6 max-w-full overflow-hidden">
+      <div className="flex flex-wrap gap-2 no-print">
+        <Link href={`/objects/${id}/estimate`} className="btn-secondary py-2 px-3 text-sm">
+          Печать сметы
+        </Link>
+        {obj.estimate.length > 0 && (
+          <Link href={`/objects/${id}/invoices`} className="btn-secondary py-2 px-3 text-sm">
+            Создать счёт
+          </Link>
+        )}
+        <Link href={`/objects/${id}/expenses`} className="btn-secondary py-2 px-3 text-sm">
+          Добавить расход
+        </Link>
+      </div>
+
       <section className="card p-4">
         <h2 className="font-semibold text-slate-900 mb-3">Клиент</h2>
         <p className="text-slate-700">{obj.client.name}</p>
@@ -94,7 +117,7 @@ export default function ObjectOverviewPage() {
         )}
       </section>
 
-      {obj.rooms.length > 0 && (
+      {rooms.length > 0 && (
         <section className="card p-4">
           <h2 className="font-semibold text-slate-900 mb-2">Замеры (сводка)</h2>
           <p className="text-sm text-slate-600">Сухие помещения: {summary.dryRoomsSqM.toFixed(2)} м²</p>
@@ -136,13 +159,19 @@ export default function ObjectOverviewPage() {
         <section className="card p-4">
           <h2 className="font-semibold text-slate-900 mb-2">Авансы</h2>
           <p className="text-slate-700">{formatRubles(totalAdvances)}</p>
+          {totalExpenses > 0 && (
+            <p className="text-sm text-slate-600 mt-1">
+              Баланс (авансы − расходы): {formatRubles(balance)}
+              {balance < 0 && <span className="text-amber-700 ml-1">— нужно доплатить</span>}
+            </p>
+          )}
           <Link href={`/objects/${id}/advances`} className="text-chestro-600 text-sm font-medium mt-2 inline-block">
             Подробнее →
           </Link>
         </section>
       )}
 
-      {obj.rooms.length === 0 && obj.estimate.length === 0 && obj.expenses.length === 0 && obj.advances.length === 0 && (
+      {rooms.length === 0 && obj.estimate.length === 0 && obj.expenses.length === 0 && obj.advances.length === 0 && (
         <div className="text-center py-8 text-slate-500">
           <p className="mb-4">Данных пока нет. Начните с замеров или сметы.</p>
           <Link href={`/objects/${id}/measurement`} className="btn-primary inline-block">

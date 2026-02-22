@@ -18,9 +18,18 @@ export interface Room {
   heightM?: number;            // высота в м (для сухих/мокрых)
   perimeterM?: number;        // периметр комнаты в м (сумма всех сторон, вводится пользователем)
   wallAreaSqM?: number;       // площадь стен = периметр × высота − проёмы (вычисляется)
+  floorAreaSqM?: number;      // площадь пола в м² (плитка, стяжка, потолок)
   slopeLinearM?: number;      // погонные метры откосов (только для type === "slope")
   openingsSqM?: number;       // площадь проёмов для вычета
   note?: string;
+}
+
+/** Этаж: название и помещения. Одна высота на этаже — defaultHeightM подставляется в помещения при расчёте. */
+export interface Floor {
+  id: string;
+  label: string;           // например "Этаж 1", "Цоколь"
+  defaultHeightM?: number;  // высота для всех помещений на этаже (м)
+  rooms: Room[];
 }
 
 // Отдельная стена (опционально)
@@ -39,6 +48,39 @@ export interface MeasurementSummary {
   slopesLinearM: number;
   totalWallSqM: number;
   totalSlopesM: number;
+  totalFloorSqM: number;   // сумма площадей пола (плитка, стяжка, потолок)
+}
+
+/** Правила расчёта для плитки */
+export interface TilingRules {
+  glueSqmPerBag?: number;      // м² на 1 мешок клея
+  groutKgPerSqm?: number;      // кг затирки на м²
+  crossesPerSqm?: number;      // крестиков на м²
+  primerSqmPerBucket?: number; // м² на ведро грунтовки
+}
+
+/** Правила расчёта для стяжки */
+export interface ScreedRules {
+  mixKgPerSqmCm?: number;      // кг смеси на м² на 1 см толщины
+}
+
+/** Правила расчёта для покраски */
+export interface PaintingRules {
+  paintSqmPerLiter?: number;   // м² на 1 л краски (один слой)
+  layers?: number;             // количество слоёв
+  primerSqmPerBucket?: number; // м² на ведро грунтовки
+}
+
+/** Правила расчёта для электрики */
+export interface ElectricalRules {
+  cableMPerPoint?: number;     // м кабеля на точку
+  boxesPerPoint?: number;      // подрозетников на точку
+}
+
+/** Правила расчёта для сантехники */
+export interface PlumbingRules {
+  pipeMPerPoint?: number;      // м труб на точку
+  fittingsPerPoint?: number;   // фитингов на точку
 }
 
 export interface ClientInfo {
@@ -114,9 +156,30 @@ export interface ObjectProject {
   summaryNote?: string;
   /** Есть бетонные стены — учитывать бетоноконтакт в закупке */
   hasConcreteWalls?: boolean;
-  /** Правила расчёта материалов (штукатурка); если не заданы — используются значения по умолчанию */
+  /** Правила расчёта материалов (штукатурка) */
   plasterRules?: PlasterRules;
-  rooms: Room[];
+  /** Правила для плитки */
+  tilingRules?: TilingRules;
+  /** Правила для стяжки */
+  screedRules?: ScreedRules;
+  /** Правила для покраски */
+  paintingRules?: PaintingRules;
+  /** Правила для электрики */
+  electricalRules?: ElectricalRules;
+  /** Правила для сантехники */
+  plumbingRules?: PlumbingRules;
+  /** Толщина стяжки в см (для расчёта материалов) */
+  screedThicknessCm?: number;
+  /** Количество точек (розетки, выключатели) для электрики */
+  electricalPoints?: number;
+  /** Количество точек (краны, унитазы и т.п.) для сантехники */
+  plumbingPoints?: number;
+  /** Погонные метры труб для сантехники */
+  plumbingLinearM?: number;
+  /** Этажи с помещениями. При отсутствии — миграция из rooms в один этаж. */
+  floors?: Floor[];
+  /** @deprecated Используйте floors. Оставлено для миграции старых данных. */
+  rooms?: Room[];
   walls: WallItem[];
   estimate: EstimateItem[];
   expenses: Expense[];
@@ -128,6 +191,8 @@ export interface ObjectProject {
 }
 
 export interface AppState {
+  /** Версия схемы для миграций. Текущая: 1 */
+  version?: number;
   hasSkippedAuth: boolean;
   userId: string | null;
   selectedActivity: ActivityType | null;

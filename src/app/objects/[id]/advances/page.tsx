@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { formatRubles } from "@/lib/calculations";
+import { formatRubles, round2 } from "@/lib/calculations";
 import type { Advance } from "@/lib/types";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function AdvancesPage() {
   const params = useParams();
   const id = params.id as string;
   const { getObject, addAdvance, deleteAdvance, updateAdvance } = useStore();
-  const obj = getObject(id);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const obj = mounted ? getObject(id) : null;
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("Материалы");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -19,9 +23,21 @@ export default function AdvancesPage() {
   const [editPurpose, setEditPurpose] = useState("");
   const [editDate, setEditDate] = useState("");
 
-  if (!obj) return null;
+  if (!mounted || !obj) {
+    return (
+      <div className="px-4 sm:px-6 py-6 space-y-4">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
 
   const total = obj.advances.reduce((s, a) => s + a.amount, 0);
+  const expensesNonOverrun = obj.expenses.filter((e) => e.category !== "overrun");
+  const totalExpenses = round2(
+    expensesNonOverrun.reduce((s, e) => s + e.amount - (e.remainderAmount ?? 0), 0)
+  );
+  const balance = round2(total - totalExpenses);
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,11 +74,17 @@ export default function AdvancesPage() {
   };
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="px-4 sm:px-6 py-6 space-y-6">
       <section className="card p-4">
         <h2 className="font-semibold text-slate-900 mb-1">Всего авансов</h2>
         <p className="text-2xl font-bold text-chestro-700">{formatRubles(total)}</p>
         <p className="text-xs text-slate-500 mt-1">Получено с объекта на материалы и др.</p>
+        {totalExpenses > 0 && (
+          <p className="text-sm text-slate-600 mt-2">
+            Баланс (авансы − расходы): <span className="font-medium">{formatRubles(balance)}</span>
+            {balance < 0 && <span className="text-amber-700 ml-1">— нужно доплатить</span>}
+          </p>
+        )}
       </section>
 
       <section className="card p-4">
@@ -126,6 +148,13 @@ export default function AdvancesPage() {
             </div>
           </form>
         </section>
+      )}
+
+      {obj.advances.length === 0 && (
+        <EmptyState
+          title="Пока нет авансов"
+          description="Добавьте первый аванс, полученный с клиента на материалы или другие цели."
+        />
       )}
 
       {obj.advances.length > 0 && (

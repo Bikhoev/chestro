@@ -6,6 +6,7 @@ import { useStore } from "@/lib/store";
 import { formatRubles, round2 } from "@/lib/calculations";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import type { ExpenseCategory, Expense } from "@/lib/types";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function ExpensesPage() {
   const params = useParams();
@@ -30,11 +31,25 @@ export default function ExpensesPage() {
   const [editPaid, setEditPaid] = useState(true);
   const [showCombined, setShowCombined] = useState(false);
   const [showOnlyUnpaid, setShowOnlyUnpaid] = useState(false);
+  const [showRemainderBlock, setShowRemainderBlock] = useState(false);
+  const [showEditRemainderBlock, setShowEditRemainderBlock] = useState(false);
 
-  if (!mounted) return <div className="px-6 py-6" />;
+  if (!mounted) {
+    return (
+      <div className="px-4 sm:px-6 py-6 space-y-4">
+        <div className="h-24 bg-slate-200/60 rounded-xl animate-pulse" />
+        <div className="h-32 bg-slate-200/60 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
   if (!obj) return null;
 
   const expensesNonOverrun = obj.expenses.filter((e) => e.category !== "overrun");
+  const unpaidIds = expensesNonOverrun.filter((e) => e.paid === false).map((e) => e.id);
+
+  const markAllPaid = () => {
+    unpaidIds.forEach((expId) => updateExpense(id, expId, { paid: true }));
+  };
   const totalExpensesGross = round2(expensesNonOverrun.reduce((s, e) => s + e.amount, 0));
   const totalRemainders = round2(
     expensesNonOverrun.reduce((s, e) => s + (e.remainderAmount ?? 0), 0)
@@ -68,6 +83,7 @@ export default function ExpensesPage() {
     setAmount("");
     setDescription("");
     setRemainderAmount("");
+    setShowRemainderBlock(false);
     setPaid(true);
     setDate(new Date().toISOString().slice(0, 10));
   };
@@ -80,6 +96,7 @@ export default function ExpensesPage() {
     setEditDate(exp.date.slice(0, 10));
     setEditRemainderAmount(exp.remainderAmount != null ? String(exp.remainderAmount) : "");
     setEditPaid(exp.paid !== false);
+    setShowEditRemainderBlock(exp.remainderAmount != null && exp.remainderAmount > 0);
   };
 
   const togglePaid = (exp: Expense) => {
@@ -102,14 +119,16 @@ export default function ExpensesPage() {
       paid: editPaid,
     });
     setEditingExpense(null);
+    setShowEditRemainderBlock(false);
   };
 
   const cancelEdit = () => {
     setEditingExpense(null);
+    setShowEditRemainderBlock(false);
   };
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="px-4 sm:px-6 py-6 space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <section className="card p-4">
           <h2 className="font-semibold text-slate-900 mb-1">Расход</h2>
@@ -128,9 +147,20 @@ export default function ExpensesPage() {
 
       {totalDebt > 0 && (
         <section className="card p-4 border-amber-200 bg-amber-50/50">
-          <h2 className="font-semibold text-amber-900 mb-1">Задолженность</h2>
-          <p className="text-xs text-amber-700 mb-1">Неоплаченные расходы</p>
-          <p className="text-2xl font-bold text-amber-800">{formatRubles(totalDebt)}</p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-amber-900 mb-1">Задолженность</h2>
+              <p className="text-xs text-amber-700 mb-1">Неоплаченные расходы</p>
+              <p className="text-2xl font-bold text-amber-800">{formatRubles(totalDebt)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={markAllPaid}
+              className="btn-primary py-2 px-4 text-sm shrink-0"
+            >
+              Отметить все оплаченными
+            </button>
+          </div>
         </section>
       )}
 
@@ -180,18 +210,29 @@ export default function ExpensesPage() {
               required
             />
           </div>
-          <div>
-            <label className="block text-sm text-slate-600 mb-1">Остаток (неиспользованный материал), ₽</label>
-            <input
-              type="number"
-              value={remainderAmount}
-              onChange={(e) => setRemainderAmount(e.target.value)}
-              className="input-field"
-              placeholder="0 — если часть материала осталась"
-              min={0}
-              step={0.01}
-            />
-            <p className="text-xs text-slate-500 mt-0.5">Вычитается из суммы расхода при подсчёте</p>
+          <div className="border border-slate-200 rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowRemainderBlock((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50/80 transition"
+            >
+              <span>Указать остаток (неиспользованный материал)</span>
+              <span className={`shrink-0 text-slate-400 transition-transform ${showRemainderBlock ? "rotate-180" : ""}`}>▾</span>
+            </button>
+            {showRemainderBlock && (
+              <div className="px-4 pb-4 pt-0 border-t border-slate-100">
+                <p className="text-xs text-slate-500 mb-2">Вычитается из суммы расхода при подсчёте — если часть материала осталась</p>
+                <input
+                  type="number"
+                  value={remainderAmount}
+                  onChange={(e) => setRemainderAmount(e.target.value)}
+                  className="input-field"
+                  placeholder="0"
+                  min={0}
+                  step={0.01}
+                />
+              </div>
+            )}
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -261,17 +302,29 @@ export default function ExpensesPage() {
               <label className="block text-sm text-slate-600 mb-1">Описание</label>
               <input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className="input-field" />
             </div>
-            <div>
-              <label className="block text-sm text-slate-600 mb-1">Остаток (неиспользованный материал), ₽</label>
-              <input
-                type="number"
-                value={editRemainderAmount}
-                onChange={(e) => setEditRemainderAmount(e.target.value)}
-                className="input-field"
-                placeholder="0"
-                min={0}
-                step={0.01}
-              />
+            <div className="border border-slate-200 rounded-2xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowEditRemainderBlock((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50/80 transition"
+              >
+                <span>Указать остаток (неиспользованный материал)</span>
+                <span className={`shrink-0 text-slate-400 transition-transform ${showEditRemainderBlock ? "rotate-180" : ""}`}>▾</span>
+              </button>
+              {showEditRemainderBlock && (
+                <div className="px-4 pb-4 pt-0 border-t border-slate-100">
+                  <p className="text-xs text-slate-500 mb-2">Вычитается из суммы расхода при подсчёте</p>
+                  <input
+                    type="number"
+                    value={editRemainderAmount}
+                    onChange={(e) => setEditRemainderAmount(e.target.value)}
+                    className="input-field"
+                    placeholder="0"
+                    min={0}
+                    step={0.01}
+                  />
+                </div>
+              )}
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -292,6 +345,13 @@ export default function ExpensesPage() {
             </div>
           </form>
         </section>
+      )}
+
+      {obj.expenses.length === 0 && (
+        <EmptyState
+          title="Пока нет расходов"
+          description="Добавьте первый расход — закупку материалов или другую трату по объекту."
+        />
       )}
 
       {obj.expenses.length > 0 && (

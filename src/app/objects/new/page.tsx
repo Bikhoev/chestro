@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
+import { PageShell } from "@/components/ui/PageShell";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export default function NewObjectPage() {
   const router = useRouter();
@@ -31,14 +33,9 @@ export default function NewObjectPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col safe-top safe-bottom bg-surface">
-      <header className="px-6 py-5 border-b border-slate-100 flex items-center gap-4">
-        <Link href="/objects" className="p-2 -ml-2 text-slate-600" aria-label="Назад">
-          ←
-        </Link>
-        <h1 className="text-xl font-semibold text-slate-900">Новый объект</h1>
-      </header>
-      <main className="flex-1 px-6 py-6 overflow-auto">
+    <PageShell>
+      <PageHeader title="Новый объект" backHref="/objects" backLabel="К объектам" />
+      <main className="flex-1 px-4 sm:px-6 py-6 overflow-auto">
         <form onSubmit={handleSubmit} className="max-w-md space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Имя клиента *</label>
@@ -119,6 +116,6 @@ export default function NewObjectPage() {
           </div>
         </form>
       </main>
-    </div>
+    </PageShell>
   );
 }

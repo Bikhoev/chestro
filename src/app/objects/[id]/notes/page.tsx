@@ -5,12 +5,12 @@ import { useParams } from "next/navigation";
 import { useStore } from "@/lib/store";
 import type { ObjectProject } from "@/lib/types";
 import { ACTIVITIES } from "@/lib/constants";
-import { getMeasurementSummary, formatRubles, round2 } from "@/lib/calculations";
+import { getMeasurementSummary, getRoomsFromObject, formatRubles, round2 } from "@/lib/calculations";
 
 function buildAutoSummary(obj: ObjectProject) {
   const activityLabel =
     ACTIVITIES.find((a) => a.id === obj.activityType)?.label ?? "Не выбрано";
-  const summary = getMeasurementSummary(obj.rooms, obj.walls);
+  const summary = getMeasurementSummary(getRoomsFromObject(obj), obj.walls);
   const totalVolume = round2(summary.totalWallSqM + summary.slopesLinearM);
   const totalEstimate = round2(
     obj.estimate.reduce((sum, item) => sum + item.total, 0)
@@ -36,7 +36,7 @@ function buildAutoSummary(obj: ObjectProject) {
     obj.client.comment ? `Комментарий: ${obj.client.comment}` : null,
   ].filter(Boolean);
   const lines: string[] = [
-    `Объект Chestro — краткое саммари`,
+    `Объект Chestro`,
     "",
     ...(clientInfoLines as string[]),
     `Вид работ: ${activityLabel}`,

@@ -1,4 +1,23 @@
-import type { Room, MeasurementSummary, WallItem, PlasterRules } from "./types";
+import type {
+  Room,
+  MeasurementSummary,
+  WallItem,
+  PlasterRules,
+  Floor,
+  TilingRules,
+  ScreedRules,
+  PaintingRules,
+  ElectricalRules,
+  PlumbingRules,
+} from "./types";
+
+/** Все помещения из этажей или legacy rooms (для обратной совместимости). */
+export function getRoomsFromObject(obj: { floors?: Floor[]; rooms?: Room[] }): Room[] {
+  if (obj.floors && obj.floors.length > 0) {
+    return obj.floors.flatMap((f) => f.rooms);
+  }
+  return obj.rooms ?? [];
+}
 
 /** Округление до сотых (без бесконечных дробей) */
 export function round2(value: number): number {
@@ -25,14 +44,17 @@ export function getMeasurementSummary(rooms: Room[], walls: WallItem[] = []): Me
   let dryRoomsSqM = 0;
   let wetRoomsSqM = 0;
   let slopesLinearM = 0;
+  let totalFloorSqM = 0;
 
   for (const r of rooms) {
     if (r.type === "slope") {
       slopesLinearM += r.slopeLinearM ?? 0;
     } else if (r.type === "dry") {
       dryRoomsSqM += r.wallAreaSqM ?? 0;
+      totalFloorSqM += r.floorAreaSqM ?? 0;
     } else {
       wetRoomsSqM += r.wallAreaSqM ?? 0;
+      totalFloorSqM += r.floorAreaSqM ?? 0;
     }
   }
 
@@ -44,6 +66,7 @@ export function getMeasurementSummary(rooms: Room[], walls: WallItem[] = []): Me
     slopesLinearM: round2(slopesLinearM),
     totalWallSqM,
     totalSlopesM: round2(slopesLinearM),
+    totalFloorSqM: round2(totalFloorSqM),
   };
 }
 
@@ -89,7 +112,7 @@ export function calcPlasterMaterials(
   };
 }
 
-// ——— Плитка (усреднённые подсказки) ———
+// ——— Плитка (с редактируемыми правилами) ———
 export interface TilingMaterials {
   tileGlueBags: number;
   groutKg: number;
@@ -97,27 +120,105 @@ export interface TilingMaterials {
   crossesCount: number;
 }
 
-const TILE_GLUE_SQM_PER_BAG = 10;
-const GROUT_KG_PER_SQM = 1.5;
-const CROSSES_PER_SQM = 20;
-const TILE_PRIMER_SQM_PER_BUCKET = 100;
+export const TILING_DEFAULTS = {
+  glueSqmPerBag: 5,
+  groutKgPerSqm: 1.5,
+  crossesPerSqm: 20,
+  primerSqmPerBucket: 100,
+} as const;
 
-export function calcTilingMaterials(wallSqM: number, floorSqM?: number): TilingMaterials {
-  const total = wallSqM + (floorSqM ?? 0);
+export function calcTilingMaterials(
+  wallSqM: number,
+  floorSqM: number,
+  rules?: TilingRules
+): TilingMaterials {
+  const total = wallSqM + floorSqM;
+  const gluePer = rules?.glueSqmPerBag ?? TILING_DEFAULTS.glueSqmPerBag;
+  const groutPer = rules?.groutKgPerSqm ?? TILING_DEFAULTS.groutKgPerSqm;
+  const crossesPer = rules?.crossesPerSqm ?? TILING_DEFAULTS.crossesPerSqm;
+  const primerPer = rules?.primerSqmPerBucket ?? TILING_DEFAULTS.primerSqmPerBucket;
   return {
-    tileGlueBags: Math.ceil(total / TILE_GLUE_SQM_PER_BAG),
-    groutKg: Math.ceil(total * GROUT_KG_PER_SQM),
-    primerBuckets: Math.ceil(total / TILE_PRIMER_SQM_PER_BUCKET) || 1,
-    crossesCount: Math.ceil(total * CROSSES_PER_SQM),
+    tileGlueBags: Math.ceil(total / gluePer) || 0,
+    groutKg: Math.ceil(total * groutPer) || 0,
+    primerBuckets: Math.ceil(total / primerPer) || (total > 0 ? 1 : 0),
+    crossesCount: Math.ceil(total * crossesPer) || 0,
   };
 }
 
-// ——— Стяжка ———
-const SCREED_MIX_KG_PER_SQM_CM = 20; // кг на м² на 1 см толщины
+// ——— Стяжка (с редактируемыми правилами) ———
+export const SCREED_DEFAULTS = { mixKgPerSqmCm: 20 } as const;
 
-export function calcScreedMaterials(areaSqM: number, thicknessCm: number): { mixKg: number } {
+export function calcScreedMaterials(
+  areaSqM: number,
+  thicknessCm: number,
+  rules?: ScreedRules
+): { mixKg: number } {
+  const kgPer = rules?.mixKgPerSqmCm ?? SCREED_DEFAULTS.mixKgPerSqmCm;
+  return { mixKg: Math.ceil(areaSqM * thicknessCm * kgPer) || 0 };
+}
+
+// ——— Покраска (с редактируемыми правилами) ———
+export interface PaintingMaterials {
+  paintLiters: number;
+  primerBuckets: number;
+}
+
+export const PAINTING_DEFAULTS = {
+  paintSqmPerLiter: 10,
+  layers: 2,
+  primerSqmPerBucket: 150,
+} as const;
+
+export function calcPaintingMaterials(
+  wallSqM: number,
+  ceilingSqM: number,
+  rules?: PaintingRules
+): PaintingMaterials {
+  const total = wallSqM + ceilingSqM;
+  const sqmPerL = rules?.paintSqmPerLiter ?? PAINTING_DEFAULTS.paintSqmPerLiter;
+  const layers = rules?.layers ?? PAINTING_DEFAULTS.layers;
+  const primerPer = rules?.primerSqmPerBucket ?? PAINTING_DEFAULTS.primerSqmPerBucket;
   return {
-    mixKg: Math.ceil(areaSqM * thicknessCm * SCREED_MIX_KG_PER_SQM_CM),
+    paintLiters: Math.ceil((total * layers) / sqmPerL) || 0,
+    primerBuckets: Math.ceil(total / primerPer) || (total > 0 ? 1 : 0),
+  };
+}
+
+// ——— Электрика (точечный расчёт) ———
+export interface ElectricalMaterials {
+  cableM: number;
+  boxes: number;
+}
+
+export const ELECTRICAL_DEFAULTS = { cableMPerPoint: 15, boxesPerPoint: 1 } as const;
+
+export function calcElectricalMaterials(points: number, rules?: ElectricalRules): ElectricalMaterials {
+  const cablePer = rules?.cableMPerPoint ?? ELECTRICAL_DEFAULTS.cableMPerPoint;
+  const boxesPer = rules?.boxesPerPoint ?? ELECTRICAL_DEFAULTS.boxesPerPoint;
+  return {
+    cableM: Math.ceil(points * cablePer) || 0,
+    boxes: Math.ceil(points * boxesPer) || 0,
+  };
+}
+
+// ——— Сантехника (точечный + погонный) ———
+export interface PlumbingMaterials {
+  pipeM: number;
+  fittings: number;
+}
+
+export const PLUMBING_DEFAULTS = { pipeMPerPoint: 8, fittingsPerPoint: 3 } as const;
+
+export function calcPlumbingMaterials(
+  points: number,
+  linearM: number,
+  rules?: PlumbingRules
+): PlumbingMaterials {
+  const pipePer = rules?.pipeMPerPoint ?? PLUMBING_DEFAULTS.pipeMPerPoint;
+  const fittingsPer = rules?.fittingsPerPoint ?? PLUMBING_DEFAULTS.fittingsPerPoint;
+  return {
+    pipeM: Math.ceil(points * pipePer + linearM) || 0,
+    fittings: Math.ceil(points * fittingsPer) || 0,
   };
 }
 

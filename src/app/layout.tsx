@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { StoreProvider } from "@/lib/store";
 import { AuthProvider } from "@/lib/auth-context";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "Chestro — учёт объектов для строителей",
@@ -22,7 +23,9 @@ export default function RootLayout({
     <html lang="ru">
       <body className="min-h-screen">
         <AuthProvider>
-          <StoreProvider>{children}</StoreProvider>
+          <StoreProvider>
+            <AppShell>{children}</AppShell>
+          </StoreProvider>
         </AuthProvider>
       </body>
     </html>

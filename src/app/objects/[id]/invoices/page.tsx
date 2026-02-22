@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useStore } from "@/lib/store";
 import { formatRubles, round2 } from "@/lib/calculations";
 import type { Invoice } from "@/lib/types";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export default function InvoicesPage() {
   const params = useParams();
@@ -20,7 +22,14 @@ export default function InvoicesPage() {
 
   const obj = mounted ? getObject(id) : null;
 
-  if (!mounted) return <div className="px-6 py-6" />;
+  if (!mounted) {
+    return (
+      <div className="px-4 sm:px-6 py-6 space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-40 w-full" />
+      </div>
+    );
+  }
   if (!obj) return null;
 
   const invoices = obj.invoices ?? [];
@@ -52,7 +61,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="px-6 py-6 space-y-6">
+    <div className="px-4 sm:px-6 py-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="font-semibold text-slate-900">Счета</h2>
         <div className="flex items-center gap-2">
@@ -98,12 +107,15 @@ export default function InvoicesPage() {
       )}
 
       {!canCreate && invoices.length === 0 && (
-        <div className="card p-6 text-center text-slate-600">
-          <p className="mb-2">Чтобы выставить счёт, сначала добавьте позиции в разделе «Смета».</p>
-          <Link href={`/objects/${id}/estimate`} className="text-chestro-600 font-medium">
-            Перейти к смете →
-          </Link>
-        </div>
+        <EmptyState
+          title="Нет позиций в смете"
+          description="Чтобы выставить счёт, сначала добавьте позиции в разделе «Смета»."
+          action={
+            <Link href={`/objects/${id}/estimate`} className="btn-primary py-3 px-6">
+              Перейти к смете
+            </Link>
+          }
+        />
       )}
 
       {invoices.length > 0 && (
