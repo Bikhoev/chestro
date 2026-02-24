@@ -43,7 +43,10 @@ export default function MeasurementPage() {
   }
 
   const floors = obj.floors ?? [];
+  const activityType = obj.activityType ?? "plastering";
   const summary = getMeasurementSummary(getRoomsFromObject(obj), obj.walls);
+  const isPlastering = activityType === "plastering";
+  const isScreed = activityType === "screed";
 
   const handleAddRoom = (floorId: string) => {
     const floor = floors.find((f) => f.id === floorId);
@@ -63,7 +66,7 @@ export default function MeasurementPage() {
       const perimeterM = parseFloat(newPerimeterM.replace(",", ".")) || 0;
       const openingsSqM = parseFloat(newOpenings.replace(",", ".")) || 0;
       const wallAreaSqM = calcRoomWallArea(perimeterM, heightM, openingsSqM);
-      const floorAreaSqM = parseFloat(newFloorArea.replace(",", ".")) || undefined;
+      const floorAreaSqM = isPlastering ? undefined : (parseFloat(newFloorArea.replace(",", ".")) || undefined);
       addRoom(id, floorId, {
         id: uuid(),
         name,
@@ -166,8 +169,10 @@ export default function MeasurementPage() {
                     <span className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-sm font-semibold text-slate-900">
                       {room.type === "slope"
                         ? `${(room.slopeLinearM ?? 0).toFixed(2)} м.п.`
-                        : `${(room.wallAreaSqM ?? 0).toFixed(2)} м²`}
-                      {room.type !== "slope" && (room.floorAreaSqM ?? 0) > 0 && (
+                        : isScreed
+                          ? `${(room.floorAreaSqM ?? 0).toFixed(2)} м²`
+                          : `${(room.wallAreaSqM ?? 0).toFixed(2)} м²`}
+                      {!isPlastering && room.type !== "slope" && (room.floorAreaSqM ?? 0) > 0 && !isScreed && (
                         <span className="text-slate-500 ml-1">/ {room.floorAreaSqM!.toFixed(1)} м² пол</span>
                       )}
                     </span>
@@ -182,64 +187,70 @@ export default function MeasurementPage() {
                   </div>
                 </div>
                 {room.type !== "slope" && (
-                  <div className={`mt-3 grid gap-2 text-sm ${floor.defaultHeightM == null ? "grid-cols-2" : ""}`}>
-                    <div>
-                      <label className="text-slate-500 block">Периметр, м</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={room.perimeterM ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          recalcAndSaveRoom(room, floor, { perimeterM: v ? parseFloat(v.replace(",", ".")) : undefined });
-                        }}
-                        className="input-field py-2 text-sm"
-                        placeholder="Сумма всех сторон"
-                      />
-                    </div>
-                    {floor.defaultHeightM == null && (
-                      <div>
-                        <label className="text-slate-500 block">Высота, м</label>
+                  <div className={`mt-3 grid gap-2 text-sm ${!isScreed && floor.defaultHeightM == null ? "grid-cols-2" : ""}`}>
+                    {!isScreed && (
+                      <>
+                        <div>
+                          <label className="text-slate-500 block">Периметр, м</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={room.perimeterM ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              recalcAndSaveRoom(room, floor, { perimeterM: v ? parseFloat(v.replace(",", ".")) : undefined });
+                            }}
+                            className="input-field py-2 text-sm"
+                            placeholder="Сумма всех сторон"
+                          />
+                        </div>
+                        {floor.defaultHeightM == null && (
+                          <div>
+                            <label className="text-slate-500 block">Высота, м</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={room.heightM ?? ""}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                recalcAndSaveRoom(room, floor, { heightM: v ? parseFloat(v.replace(",", ".")) : undefined });
+                              }}
+                              className="input-field py-2 text-sm"
+                            />
+                          </div>
+                        )}
+                        <div className={floor.defaultHeightM == null ? "col-span-2" : ""}>
+                          <label className="text-slate-500 block">Площадь проёмов, м²</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={room.openingsSqM ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              recalcAndSaveRoom(room, floor, { openingsSqM: v ? parseFloat(v.replace(",", ".")) : undefined });
+                            }}
+                            className="input-field py-2 text-sm"
+                            placeholder="0"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {!isPlastering && (
+                      <div className={isScreed ? "" : "col-span-2"}>
+                        <label className="text-slate-500 block">Площадь пола, м²</label>
                         <input
                           type="number"
                           step="0.01"
-                          value={room.heightM ?? ""}
+                          value={room.floorAreaSqM ?? ""}
                           onChange={(e) => {
                             const v = e.target.value;
-                            recalcAndSaveRoom(room, floor, { heightM: v ? parseFloat(v.replace(",", ".")) : undefined });
+                            recalcAndSaveRoom(room, floor, { floorAreaSqM: v ? parseFloat(v.replace(",", ".")) : undefined });
                           }}
                           className="input-field py-2 text-sm"
+                          placeholder={isScreed ? "Площадь под стяжку" : "Плитка, стяжка, потолок"}
                         />
                       </div>
                     )}
-                    <div>
-                      <label className="text-slate-500 block">Площадь пола, м²</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={room.floorAreaSqM ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          recalcAndSaveRoom(room, floor, { floorAreaSqM: v ? parseFloat(v.replace(",", ".")) : undefined });
-                        }}
-                        className="input-field py-2 text-sm"
-                        placeholder="Плитка, стяжка, потолок"
-                      />
-                    </div>
-                    <div className={floor.defaultHeightM == null ? "col-span-2" : ""}>
-                      <label className="text-slate-500 block">Площадь проёмов, м²</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={room.openingsSqM ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          recalcAndSaveRoom(room, floor, { openingsSqM: v ? parseFloat(v.replace(",", ".")) : undefined });
-                        }}
-                        className="input-field py-2 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
                   </div>
                 )}
               </li>
@@ -262,7 +273,7 @@ export default function MeasurementPage() {
               <div>
                 <label className="block text-sm text-slate-600 mb-2">Тип</label>
                 <div className="flex flex-wrap gap-2">
-                  {ROOM_TYPES.map((t) => (
+                  {(isScreed ? ROOM_TYPES.filter((t) => t.id !== "slope") : ROOM_TYPES).map((t) => (
                     <button
                       key={t.id}
                       type="button"
@@ -292,55 +303,61 @@ export default function MeasurementPage() {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-sm text-slate-600 mb-1">Периметр комнаты, м</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newPerimeterM}
-                      onChange={(e) => setNewPerimeterM(e.target.value)}
-                      className="input-field"
-                      placeholder="Сумма всех сторон"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-slate-600 mb-1">Площадь пола, м²</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newFloorArea}
-                      onChange={(e) => setNewFloorArea(e.target.value)}
-                      className="input-field"
-                      placeholder="Для плитки, стяжки, покраски потолка"
-                    />
-                  </div>
-                  {floor.defaultHeightM == null && (
+                  {!isScreed && (
+                    <>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Периметр комнаты, м</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newPerimeterM}
+                          onChange={(e) => setNewPerimeterM(e.target.value)}
+                          className="input-field"
+                          placeholder="Сумма всех сторон"
+                        />
+                      </div>
+                      {floor.defaultHeightM == null && (
+                        <div>
+                          <label className="block text-sm text-slate-600 mb-1">Высота помещения, м</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={newRoomHeight}
+                            onChange={(e) => setNewRoomHeight(e.target.value)}
+                            className="input-field"
+                            placeholder="2.7"
+                          />
+                        </div>
+                      )}
+                      {floor.defaultHeightM != null && (
+                        <p className="text-sm text-slate-600">Высота: {floor.defaultHeightM} м (с этажа)</p>
+                      )}
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Площадь проёмов, м²</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newOpenings}
+                          onChange={(e) => setNewOpenings(e.target.value)}
+                          className="input-field"
+                          placeholder="0"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {!isPlastering && (
                     <div>
-                      <label className="block text-sm text-slate-600 mb-1">Высота помещения, м</label>
+                      <label className="block text-sm text-slate-600 mb-1">Площадь пола, м²</label>
                       <input
                         type="number"
                         step="0.01"
-                        value={newRoomHeight}
-                        onChange={(e) => setNewRoomHeight(e.target.value)}
+                        value={newFloorArea}
+                        onChange={(e) => setNewFloorArea(e.target.value)}
                         className="input-field"
-                        placeholder="2.7"
+                        placeholder={isScreed ? "Площадь под стяжку" : "Для плитки, стяжки, покраски потолка"}
                       />
                     </div>
                   )}
-                  {floor.defaultHeightM != null && (
-                    <p className="text-sm text-slate-600">Высота: {floor.defaultHeightM} м (с этажа)</p>
-                  )}
-                  <div>
-                    <label className="block text-sm text-slate-600 mb-1">Площадь проёмов, м²</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newOpenings}
-                      onChange={(e) => setNewOpenings(e.target.value)}
-                      className="input-field"
-                      placeholder="0"
-                    />
-                  </div>
                 </>
               )}
               <div className="flex gap-2">
@@ -385,7 +402,8 @@ export default function MeasurementPage() {
         Добавить этаж
       </button>
 
-      {/* Отдельные стены */}
+      {/* Отдельные стены — только не для стяжки */}
+      {!isScreed && (
       <section className="pt-6 border-t border-slate-100">
         <h2 className="font-semibold text-slate-900 mb-3">Отдельные стены</h2>
         <p className="text-sm text-slate-500 mb-3">Если нужно учесть стену отдельно (длина × высота − проёмы).</p>
@@ -551,38 +569,49 @@ export default function MeasurementPage() {
           </div>
         )}
       </section>
+      )}
 
       {/* Итого по замерам */}
       <section className="card p-4">
         <h2 className="font-semibold text-slate-900 mb-3">Итого по замерам</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-slate-500">Сухие помещения</p>
-            <p className="font-semibold text-slate-900">{summary.dryRoomsSqM.toFixed(2)} м²</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-slate-500">Санузлы</p>
-            <p className="font-semibold text-slate-900">{summary.wetRoomsSqM.toFixed(2)} м²</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-slate-500">Откосы</p>
-            <p className="font-semibold text-slate-900">{summary.slopesLinearM.toFixed(2)} м.п.</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-3">
-            <p className="text-slate-500">Площадь пола</p>
-            <p className="font-semibold text-slate-900">{summary.totalFloorSqM.toFixed(2)} м²</p>
-          </div>
-          <div className="bg-chestro-50 rounded-xl p-3">
-            <p className="text-chestro-700">Итоговый объём</p>
-            <p className="font-semibold text-chestro-800">
-              {(summary.totalWallSqM + summary.slopesLinearM).toFixed(2)}
-            </p>
-            <p className="text-xs text-chestro-600/80 mt-0.5">стены м² + откосы м.п.</p>
-          </div>
+        <div className={`grid gap-3 text-sm ${isScreed ? "grid-cols-1 max-w-xs" : "grid-cols-2 sm:grid-cols-3"}`}>
+          {!isScreed && (
+            <>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-slate-500">Сухие помещения</p>
+                <p className="font-semibold text-slate-900">{summary.dryRoomsSqM.toFixed(2)} м²</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-slate-500">Санузлы</p>
+                <p className="font-semibold text-slate-900">{summary.wetRoomsSqM.toFixed(2)} м²</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-slate-500">Откосы</p>
+                <p className="font-semibold text-slate-900">{summary.slopesLinearM.toFixed(2)} м.п.</p>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3">
+                <p className="text-slate-500">Площадь пола</p>
+                <p className="font-semibold text-slate-900">{summary.totalFloorSqM.toFixed(2)} м²</p>
+              </div>
+              <div className="bg-chestro-50 rounded-xl p-3">
+                <p className="text-chestro-700">Итоговый объём</p>
+                <p className="font-semibold text-chestro-800">
+                  {(summary.totalWallSqM + summary.slopesLinearM).toFixed(2)}
+                </p>
+                <p className="text-xs text-chestro-600/80 mt-0.5">стены м² + откосы м.п.</p>
+              </div>
+            </>
+          )}
+          {isScreed && (
+            <div className="bg-chestro-50 rounded-xl p-3">
+              <p className="text-chestro-700">Площадь пола (под стяжку)</p>
+              <p className="font-semibold text-chestro-800">{summary.totalFloorSqM.toFixed(2)} м²</p>
+            </div>
+          )}
         </div>
-        {(floors.some((f) => f.rooms.length > 0) || (obj.walls?.length ?? 0) > 0) && (
+        {(floors.some((f) => f.rooms.length > 0) || (!isScreed && (obj.walls?.length ?? 0) > 0)) && (
           <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-sm font-medium text-slate-700 mb-2">По помещениям и стенам:</p>
+            <p className="text-sm font-medium text-slate-700 mb-2">{isScreed ? "По помещениям:" : "По помещениям и стенам:"}</p>
             <ul className="space-y-1 text-sm">
               {floors.map((floor) =>
                 floor.rooms.map((room) => (
@@ -593,12 +622,14 @@ export default function MeasurementPage() {
                     <span className="font-medium shrink-0">
                       {room.type === "slope"
                         ? `${(room.slopeLinearM ?? 0).toFixed(2)} м.п.`
-                        : `${(room.wallAreaSqM ?? 0).toFixed(2)} м²`}
+                        : isScreed
+                          ? `${(room.floorAreaSqM ?? 0).toFixed(2)} м²`
+                          : `${(room.wallAreaSqM ?? 0).toFixed(2)} м²`}
                     </span>
                   </li>
                 ))
               )}
-              {(obj.walls ?? []).map((wall) => (
+              {!isScreed && (obj.walls ?? []).map((wall) => (
                 <li key={wall.id} className="flex justify-between gap-2 text-slate-700">
                   <span className="truncate">Стена — {wall.name}</span>
                   <span className="font-medium shrink-0">
